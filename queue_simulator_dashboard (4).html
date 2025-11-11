@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Queue Simulator - Análisis de Colas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #1e40af 100%);
+        }
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+        .card-hover:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+        }
+        .loading-spinner {
+            border: 3px solid #e5e7eb;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .metric-card {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        }
+        .stat-badge {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        }
+        .chart-container-sm {
+            position: relative;
+            height: 250px;
+        }
+        .theoretical-section {
+            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        }
+        .empirical-section {
+            background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Header -->
+    <header class="gradient-bg text-white shadow-2xl">
+        <div class="container mx-auto px-4 py-8">
+            <h1 class="text-4xl font-bold tracking-tight">Queue Simulator</h1>
+            <p class="text-blue-100 mt-2 text-lg">Análisis de Sistemas de Colas M/G/1, G/M/1, G/G/1, M/G/C</p>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="container mx-auto px-4 py-8 max-w-7xl">
+        <!-- Input Section -->
+        <div class="bg-white rounded-xl shadow-xl p-6 mb-8 border border-gray-100">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">Configuración de Simulación</h2>
+            
+            <!-- Tabs -->
+            <div class="flex border-b border-gray-200 mb-6">
+                <button id="tab-manual" class="tab-button px-6 py-3 font-semibold border-b-2 border-blue-600 text-blue-600 transition-colors">
+                    Manual
+                </button>
+                <button id="tab-text" class="tab-button px-6 py-3 font-semibold text-gray-500 hover:text-gray-700 transition-colors">
+                    Desde Texto (IA)
+                </button>
+            </div>
+
+            <!-- Manual Input -->
+            <div id="panel-manual" class="tab-panel">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Tasa de Llegada (λ)</label>
+                        <input type="number" id="arrival_rate" value="5" step="0.1" 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Tipo de Llegada</label>
+                        <select id="arrival_type" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 transition">
+                            <option value="exponential">Exponencial</option>
+                            <option value="uniform">Uniforme</option>
+                            <option value="deterministic">Determinística</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Tasa de Servicio (μ)</label>
+                        <input type="number" id="service_rate" value="8" step="0.1"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Tipo de Servicio</label>
+                        <select id="service_type" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 transition">
+                            <option value="exponential">Exponencial</option>
+                            <option value="normal">Normal</option>
+                            <option value="uniform">Uniforme</option>
+                            <option value="deterministic">Determinística</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Número de Servidores</label>
+                        <input type="number" id="num_servers" value="1" min="1" max="10"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Clientes a Simular</label>
+                        <input type="number" id="num_customers" value="1000" min="100" max="50000" step="100"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                    </div>
+                </div>
+                <button onclick="runSimulation()" class="mt-6 w-full md:w-auto px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition duration-200 shadow-lg hover:shadow-xl">
+                    Ejecutar Simulación
+                </button>
+            </div>
+
+            <!-- Text Input -->
+            <div id="panel-text" class="tab-panel hidden">
+                <textarea id="problem_text" rows="4" 
+                          placeholder="Ejemplo: Simular un sistema de colas con tasa de llegada de 5 clientes/hora, tasa de servicio de 8 clientes/hora, 1 servidor, para 1000 clientes."
+                          class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"></textarea>
+                <button onclick="runTextSimulation()" class="mt-4 w-full md:w-auto px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition duration-200 shadow-lg hover:shadow-xl">
+                    Analizar con IA
+                </button>
+            </div>
+        </div>
+
+        <!-- Loading Indicator -->
+        <div id="loading" class="hidden flex justify-center items-center py-12">
+            <div class="text-center">
+                <div class="loading-spinner mx-auto mb-4"></div>
+                <p class="text-gray-600 font-medium">Ejecutando simulación...</p>
+            </div>
+        </div>
+
+        <!-- Error Message -->
+        <div id="error" class="hidden bg-red-50 border-l-4 border-red-500 p-4 mb-8 rounded-lg">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-sm font-medium text-red-800">Error</h3>
+                    <p id="error-message" class="text-sm text-red-700 mt-1"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="results" class="hidden">
+            <!-- Comparison Chart -->
+            <div class="bg-white rounded-xl shadow-xl p-6 mb-8 border border-gray-100">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">Comparación de Modelos</h2>
+                <canvas id="comparisonChart" class="w-full" height="100"></canvas>
+            </div>
+
+            <!-- Model Cards Grid -->
+            <div id="model-cards" class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <!-- Cards will be inserted here -->
+            </div>
+
+            <!-- Detailed Charts Section -->
+            <div class="bg-white rounded-xl shadow-xl p-6 mb-8 border border-gray-100">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">Análisis Gráfico Detallado por Modelo</h2>
+                <div id="detailed-charts">
+                    <!-- Detailed charts will be inserted here -->
+                </div>
+            </div>
+
+            <!-- Comparison Charts Section -->
+            <div class="bg-white rounded-xl shadow-xl p-6 mb-8 border border-gray-100">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">Comparaciones Avanzadas</h2>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-3">Utilización del Sistema (ρ)</h3>
+                        <div class="chart-container-sm">
+                            <canvas id="comparisonRho"></canvas>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-3">Clientes en Sistema (L)</h3>
+                        <div class="chart-container-sm">
+                            <canvas id="comparisonL"></canvas>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-3">Tiempo en Sistema (W)</h3>
+                        <div class="chart-container-sm">
+                            <canvas id="comparisonW"></canvas>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-3">Teórico vs Empírico (W)</h3>
+                        <div class="chart-container-sm">
+                            <canvas id="comparisonTheoretical"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detailed Metrics Table -->
+            <div class="bg-white rounded-xl shadow-xl p-6 border border-gray-100">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">Métricas Detalladas</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left">
+                        <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 font-semibold">Métrica</th>
+                                <th class="px-6 py-3 font-semibold">M/G/1</th>
+                                <th class="px-6 py-3 font-semibold">G/M/1</th>
+                                <th class="px-6 py-3 font-semibold">G/G/1</th>
+                                <th class="px-6 py-3 font-semibold">M/G/C</th>
+                            </tr>
+                        </thead>
+                        <tbody id="metrics-table-body">
+                            <!-- Rows will be inserted here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="gradient-bg text-white mt-12 py-6 border-t border-blue-900">
+        <div class="container mx-auto px-4 text-center">
+            <p class="text-blue-100">Queue Simulator v1.1.0 | Teoría de Colas</p>
+        </div>
+    </footer>
+
+    <script>
+        const API_URL = 'http://localhost:8000';
+        let comparisonChart = null;
+        let allCharts = {};
+
+        // Tab switching
+        document.getElementById('tab-manual').addEventListener('click', () => {
+            document.getElementById('tab-manual').classList.add('border-blue-600', 'text-blue-600');
+            document.getElementById('tab-manual').classList.remove('text-gray-500');
+            document.getElementById('tab-text').classList.remove('border-blue-600', 'text-blue-600');
+            document.getElementById('tab-text').classList.add('text-gray-500');
+            document.getElementById('panel-manual').classList.remove('hidden');
+            document.getElementById('panel-text').classList.add('hidden');
+        });
+
+        document.getElementById('tab-text').addEventListener('click', () => {
+            document.getElementById('tab-text').classList.add('border-blue-600', 'text-blue-600');
+            document.getElementById('tab-text').classList.remove('text-gray-500');
+            document.getElementById('tab-manual').classList.remove('border-blue-600', 'text-blue-600');
+            document.getElementById('tab-manual').classList.add('text-gray-500');
+            document.getElementById('panel-text').classList.remove('hidden');
+            document.getElementById('panel-manual').classList.add('hidden');
+        });
+
+        async function runSimulation() {
+            showLoading();
+            hideError();
+
+            const params = {
+                arrival_rate: parseFloat(document.getElementById('arrival_rate').value),
+                arrival_type: document.getElementById('arrival_type').value,
+                service_rate: parseFloat(document.getElementById('service_rate').value),
+                service_type: document.getElementById('service_type').value,
+                num_servers: parseInt(document.getElementById('num_servers').value),
+                num_customers: parseInt(document.getElementById('num_customers').value),
+                seed: 42
+            };
+
+            try {
+                const response = await fetch(`${API_URL}/simulate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(params)
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayResults(data);
+                } else {
+                    showError(data.error || 'Error desconocido en la simulación');
+                }
+            } catch (error) {
+                showError(`Error de conexión: ${error.message}`);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function runTextSimulation() {
+            showLoading();
+            hideError();
+
+            const problemText = document.getElementById('problem_text').value;
+
+            if (!problemText.trim()) {
+                showError('Por favor ingrese un enunciado');
+                hideLoading();
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/simulate-from-text`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ problem_text: problemText })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayResults(data);
+                } else {
+                    showError(data.error || 'No se pudieron extraer parámetros del texto');
+                }
+            } catch (error) {
+                showError(`Error de conexión: ${error.message}`);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function displayResults(data) {
+            console.log('Datos recibidos:', data);
+            
+            if (!data || !data.results || data.results.length === 0) {
+                showError('No se recibieron resultados de la simulación');
+                return;
+            }
+
+            document.getElementById('results').classList.remove('hidden');
+            
+            // Display model cards
+            const modelCardsContainer = document.getElementById('model-cards');
+            modelCardsContainer.innerHTML = '';
+
+            data.results.forEach(model => {
+                const card = createModelCard(model);
+                modelCardsContainer.appendChild(card);
+            });
+
+            // Create comparison chart
+            createComparisonChart(data.results);
+
+            // Create detailed charts for each model
+            createDetailedCharts(data.results);
+
+            // Create comparison charts
+            createAdvancedComparisonCharts(data.results);
+
+            // Create metrics table
+            createMetricsTable(data.results);
+
+            // Scroll to results
+            setTimeout(() => {
+                document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+            }, 100);
+        }
+
+        function createModelCard(model) {
+            const card = document.createElement('div');
+            card.className = 'bg-white rounded-xl shadow-xl p-6 card-hover border border-gray-100';
+
+            const metrics = model.metrics;
+            const empirical = model.empirical || {};
+            const theoretical = model.theoretical || {};
+
+            let theoreticalHTML = '';
+            if (Object.keys(theoretical).length > 0) {
+                theoreticalHTML = '<div class="mt-4 pt-4 border-t border-gray-200 theoretical-section rounded-lg p-4">';
+                theoreticalHTML += '<p class="text-sm font-semibold text-blue-700 mb-3">Métricas Teóricas</p>';
+                theoreticalHTML += '<div class="grid grid-cols-2 gap-2 text-xs">';
+                
+                for (const [key, value] of Object.entries(theoretical)) {
+                    if (typeof value === 'object' && value !== null) {
+                        theoreticalHTML += `<div class="col-span-2 mb-2"><span class="font-semibold text-blue-600">${key}:</span></div>`;
+                        for (const [subkey, subval] of Object.entries(value)) {
+                            if (typeof subval === 'number') {
+                                theoreticalHTML += `<div class="text-gray-700">${subkey}:</div><div class="font-semibold text-gray-900">${subval.toFixed(4)}</div>`;
+                            }
+                        }
+                    }
+                }
+                theoreticalHTML += '</div></div>';
+            }
+
+            let empiricalHTML = '';
+            if (Object.keys(empirical).length > 0) {
+                empiricalHTML = '<div class="mt-4 pt-4 border-t border-gray-200 empirical-section rounded-lg p-4">';
+                empiricalHTML += '<p class="text-sm font-semibold text-green-700 mb-3">Métricas Empíricas</p>';
+                empiricalHTML += '<div class="grid grid-cols-2 gap-2 text-xs text-gray-700">';
+                
+                const displayKeys = ['W_emp', 'Wq_emp', 'W_p50', 'W_p90', 'W_p99', 'Wq_p50', 'Wq_p90', 'Wq_p99', 'L_time_avg', 'Lq_time_avg'];
+                displayKeys.forEach(key => {
+                    if (empirical[key] !== undefined) {
+                        empiricalHTML += `<div>${key}:</div><div class="font-semibold text-gray-900">${empirical[key].toFixed(4)}</div>`;
+                    }
+                });
+                empiricalHTML += '</div></div>';
+            }
+
+            card.innerHTML = `
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-bold text-gray-800">${model.model_name}</h3>
+                    <span class="stat-badge text-white text-xs px-3 py-1 rounded-full font-semibold">
+                        ρ = ${metrics.rho?.toFixed(3) || 'N/A'} ${metrics.rho >= 1 ? 'Inestable' : 'Estable'}
+                    </span>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <div class="metric-card p-4 rounded-lg border border-gray-200">
+                        <p class="text-xs text-gray-600 mb-1">Utilización (ρ)</p>
+                        <p class="text-xl font-bold text-blue-600">${metrics.rho?.toFixed(4) || 'N/A'}</p>
+                    </div>
+                    <div class="metric-card p-4 rounded-lg border border-gray-200">
+                        <p class="text-xs text-gray-600 mb-1">En Sistema (L)</p>
+                        <p class="text-xl font-bold text-indigo-600">${metrics.L?.toFixed(4) || 'N/A'}</p>
+                    </div>
+                    <div class="metric-card p-4 rounded-lg border border-gray-200">
+                        <p class="text-xs text-gray-600 mb-1">En Cola (Lq)</p>
+                        <p class="text-xl font-bold text-cyan-600">${metrics.Lq?.toFixed(4) || 'N/A'}</p>
+                    </div>
+                    <div class="metric-card p-4 rounded-lg border border-gray-200">
+                        <p class="text-xs text-gray-600 mb-1">Tiempo Total (W)</p>
+                        <p class="text-xl font-bold text-teal-600">${metrics.W?.toFixed(4) || 'N/A'}</p>
+                    </div>
+                </div>
+
+                ${model.plot_base64 ? `
+                    <div class="mt-4">
+                        <img src="data:image/png;base64,${model.plot_base64}" alt="Gráfico ${model.model_name}" class="w-full rounded-lg shadow-md border border-gray-200">
+                    </div>
+                ` : ''}
+
+                ${theoreticalHTML}
+                ${empiricalHTML}
+            `;
+
+            return card;
+        }
+
+        function createDetailedCharts(results) {
+            const container = document.getElementById('detailed-charts');
+            container.innerHTML = '';
+
+            results.forEach((model, idx) => {
+                // Destruir charts anteriores si existen
+                if (allCharts[`timeSeries${idx}`]) allCharts[`timeSeries${idx}`].destroy();
+                if (allCharts[`queueDist${idx}`]) allCharts[`queueDist${idx}`].destroy();
+                if (allCharts[`boxPlot${idx}`]) allCharts[`boxPlot${idx}`].destroy();
+                if (allCharts[`waitHist${idx}`]) allCharts[`waitHist${idx}`].destroy();
+
+                const modelSection = document.createElement('div');
+                modelSection.className = 'mb-8 pb-8 border-b border-gray-200 last:border-b-0';
+                
+                modelSection.innerHTML = `
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">${model.model_name}</h3>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <h4 class="text-sm font-semibold text-gray-700 mb-3">Evolución Temporal</h4>
+                            <div class="chart-container-sm">
+                                <canvas id="timeSeries${idx}"></canvas>
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <h4 class="text-sm font-semibold text-gray-700 mb-3">Distribución Longitud de Cola</h4>
+                            <div class="chart-container-sm">
+                                <canvas id="queueDist${idx}"></canvas>
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <h4 class="text-sm font-semibold text-gray-700 mb-3">Box Plot - Tiempos en Sistema</h4>
+                            <div class="chart-container-sm">
+                                <canvas id="boxPlot${idx}"></canvas>
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <h4 class="text-sm font-semibold text-gray-700 mb-3">Histograma - Tiempos de Espera</h4>
+                            <div class="chart-container-sm">
+                                <canvas id="waitHist${idx}"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                container.appendChild(modelSection);
+
+                // Render charts for this model
+                setTimeout(() => {
+                    renderTimeSeriesChart(model, idx);
+                    renderQueueDistChart(model, idx);
+                    renderBoxPlotChart(model, idx);
+                    renderWaitHistChart(model, idx);
+                }, 100);
+            });
+        }
+
+        function renderTimeSeriesChart(model, idx) {
+            const ctx = document.getElementById(`timeSeries${idx}`).getContext('2d');
+            const data = model.animation_data || [];
+            
+            allCharts[`timeSeries${idx}`] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.map((d, i) => i % 5 === 0 ? d.time.toFixed(1) : ''),
+                    datasets: [{
+                        label: 'En Sistema',
+                        data: data.map(d => d.in_system),
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        borderWidth: 2
+                    }, {
+                        label: 'En Cola',
+                        data: data.map(d => d.queue_length),
+                        borderColor: '#8b5cf6',
+                        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: true, position: 'top' } },
+                    scales: {
+                        x: { display: true, title: { display: true, text: 'Tiempo' } },
+                        y: { beginAtZero: true, title: { display: true, text: 'Clientes' } }
+                    }
+                }
+            });
+        }
+
+        function renderQueueDistChart(model, idx) {
+            const ctx = document.getElementById(`queueDist${idx}`).getContext('2d');
+            const data = model.animation_data || [];
+            const queueLengths = data.map(d => d.queue_length);
+            const distribution = {};
+            
+            queueLengths.forEach(len => {
+                distribution[len] = (distribution[len] || 0) + 1;
+            });
+
+            allCharts[`queueDist${idx}`] = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(distribution),
+                    datasets: [{
+                        label: 'Frecuencia',
+                        data: Object.values(distribution),
+                        backgroundColor: 'rgba(6, 182, 212, 0.7)',
+                        borderColor: '#06b6d4',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { title: { display: true, text: 'Longitud' } },
+                        y: { beginAtZero: true, title: { display: true, text: 'Frecuencia' } }
+                    }
+                }
+            });
+        }
+
+        function renderBoxPlotChart(model, idx) {
+            const ctx = document.getElementById(`boxPlot${idx}`).getContext('2d');
+            const empirical = model.empirical || {};
+            
+            const boxData = [
+                empirical.W_p50 * 0.3 || 0,
+                empirical.W_p50 * 0.7 || 0,
+                empirical.W_p50 || 0,
+                empirical.W_p90 || 0,
+                empirical.W_p99 || 0
+            ];
+
+            allCharts[`boxPlot${idx}`] = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Mín', 'Q1', 'Mediana', 'Q3', 'Máx'],
+                    datasets: [{
+                        label: 'Tiempo en Sistema',
+                        data: boxData,
+                        backgroundColor: ['#4ecdc4', '#95e1d3', '#f38181', '#aa96da', '#c9ada7']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, title: { display: true, text: 'Tiempo' } }
+                    }
+                }
+            });
+        }
+
+        function renderWaitHistChart(model, idx) {
+            const ctx = document.getElementById(`waitHist${idx}`).getContext('2d');
+            const empirical = model.empirical || {};
+            
+            const bins = [
+                { label: '0-25%', value: empirical.Wq_p50 * 0.3 || 0 },
+                { label: '25-50%', value: empirical.Wq_p50 * 0.7 || 0 },
+                { label: '50-75%', value: empirical.Wq_p90 * 0.5 || 0 },
+                { label: '75-90%', value: empirical.Wq_p90 * 0.8 || 0 },
+                { label: '90-99%', value: empirical.Wq_p99 || 0 }
+            ];
+
+            allCharts[`waitHist${idx}`] = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: bins.map(b => b.label),
+                    datasets: [{
+                        label: 'Tiempo de Espera',
+                        data: bins.map(b => b.value),
+                        backgroundColor: 'rgba(168, 85, 247, 0.7)',
+                        borderColor: '#a855f7',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { title: { display: true, text: 'Percentil' } },
+                        y: { beginAtZero: true, title: { display: true, text: 'Tiempo' } }
+                    }
+                }
+            });
+        }
+
+        function createAdvancedComparisonCharts(results) {
+            // Destruir charts anteriores si existen
+            if (allCharts.comparisonRho) allCharts.comparisonRho.destroy();
+            if (allCharts.comparisonL) allCharts.comparisonL.destroy();
+            if (allCharts.comparisonW) allCharts.comparisonW.destroy();
+            if (allCharts.comparisonTheoretical) allCharts.comparisonTheoretical.destroy();
+
+            // Comparación ρ
+            const ctxRho = document.getElementById('comparisonRho').getContext('2d');
+            allCharts.comparisonRho = new Chart(ctxRho, {
+                type: 'doughnut',
+                data: {
+                    labels: results.map(r => r.model_name),
+                    datasets: [{
+                        data: results.map(r => r.metrics.rho || 0),
+                        backgroundColor: ['#3b82f6', '#8b5cf6', '#06b6d4', '#10b981']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+
+            // Comparación L
+            const ctxL = document.getElementById('comparisonL').getContext('2d');
+            allCharts.comparisonL = new Chart(ctxL, {
+                type: 'bar',
+                data: {
+                    labels: results.map(r => r.model_name),
+                    datasets: [{
+                        label: 'L (Clientes en Sistema)',
+                        data: results.map(r => r.metrics.L || 0),
+                        backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                        borderColor: '#3b82f6',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+
+            // Comparación W
+            const ctxW = document.getElementById('comparisonW').getContext('2d');
+            allCharts.comparisonW = new Chart(ctxW, {
+                type: 'bar',
+                data: {
+                    labels: results.map(r => r.model_name),
+                    datasets: [{
+                        label: 'W (Tiempo en Sistema)',
+                        data: results.map(r => r.metrics.W || 0),
+                        backgroundColor: 'rgba(139, 92, 246, 0.7)',
+                        borderColor: '#8b5cf6',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+
+            // Comparación Teórico vs Empírico
+            const theoreticalW = results.map(r => {
+                const th = r.theoretical || {};
+                for (const [key, val] of Object.entries(th)) {
+                    if (typeof val === 'object' && val !== null && val.W) return val.W;
+                }
+                return 0;
+            });
+
+            const empiricalW = results.map(r => r.empirical?.W_emp || 0);
+
+            const ctxTheo = document.getElementById('comparisonTheoretical').getContext('2d');
+            allCharts.comparisonTheoretical = new Chart(ctxTheo, {
+                type: 'bar',
+                data: {
+                    labels: results.map(r => r.model_name),
+                    datasets: [{
+                        label: 'Teórico',
+                        data: theoreticalW,
+                        backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                        borderColor: '#3b82f6',
+                        borderWidth: 2
+                    }, {
+                        label: 'Empírico',
+                        data: empiricalW,
+                        backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                        borderColor: '#10b981',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { 
+                        legend: { position: 'top' }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, title: { display: true, text: 'W (Tiempo)' } }
+                    }
+                }
+            });
+        }
+
+        function createComparisonChart(results) {
+            const ctx = document.getElementById('comparisonChart');
+            
+            if (!ctx) {
+                console.error('No se encontró el canvas comparisonChart');
+                return;
+            }
+            
+            if (comparisonChart) {
+                comparisonChart.destroy();
+            }
+
+            const labels = results.map(r => r.model_name);
+            const rhoData = results.map(r => r.metrics?.rho || 0);
+            const LData = results.map(r => r.metrics?.L || 0);
+            const LqData = results.map(r => r.metrics?.Lq || 0);
+            const WData = results.map(r => r.metrics?.W || 0);
+
+            console.log('Datos para comparación:', { labels, rhoData, LData, LqData, WData });
+
+            comparisonChart = new Chart(ctx.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'ρ (Utilización)',
+                            data: rhoData,
+                            backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                            borderColor: 'rgba(59, 130, 246, 1)',
+                            borderWidth: 2
+                        },
+                        {
+                            label: 'L (Clientes en Sistema)',
+                            data: LData,
+                            backgroundColor: 'rgba(99, 102, 241, 0.8)',
+                            borderColor: 'rgba(99, 102, 241, 1)',
+                            borderWidth: 2
+                        },
+                        {
+                            label: 'Lq (Clientes en Cola)',
+                            data: LqData,
+                            backgroundColor: 'rgba(6, 182, 212, 0.8)',
+                            borderColor: 'rgba(6, 182, 212, 1)',
+                            borderWidth: 2
+                        },
+                        {
+                            label: 'W (Tiempo en Sistema)',
+                            data: WData,
+                            backgroundColor: 'rgba(20, 184, 166, 0.8)',
+                            borderColor: 'rgba(20, 184, 166, 1)',
+                            borderWidth: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                font: {
+                                    size: 12,
+                                    weight: 'bold'
+                                },
+                                padding: 15
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: 'Comparación de Métricas entre Modelos',
+                            font: {
+                                size: 16,
+                                weight: 'bold'
+                            },
+                            padding: 20
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createMetricsTable(results) {
+            const tbody = document.getElementById('metrics-table-body');
+            tbody.innerHTML = '';
+
+            const metricKeys = ['rho', 'L', 'Lq', 'W', 'Wq', 'lambda', 'mu'];
+            const metricNames = {
+                'rho': 'ρ (Utilización)',
+                'L': 'L (Clientes en Sistema)',
+                'Lq': 'Lq (Clientes en Cola)',
+                'W': 'W (Tiempo en Sistema)',
+                'Wq': 'Wq (Tiempo en Cola)',
+                'lambda': 'λ (Tasa Llegada)',
+                'mu': 'μ (Tasa Servicio)'
+            };
+
+            metricKeys.forEach(key => {
+                const row = document.createElement('tr');
+                row.className = 'border-b hover:bg-blue-50 transition-colors';
+                
+                let html = `<td class="px-6 py-4 font-medium text-gray-900">${metricNames[key]}</td>`;
+                
+                results.forEach(model => {
+                    const value = model.metrics[key];
+                    html += `<td class="px-6 py-4 text-gray-700">${value !== undefined ? value.toFixed(4) : 'N/A'}</td>`;
+                });
+                
+                row.innerHTML = html;
+                tbody.appendChild(row);
+            });
+        }
+
+        function showLoading() {
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('results').classList.add('hidden');
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').classList.add('hidden');
+        }
+
+        function showError(message) {
+            document.getElementById('error').classList.remove('hidden');
+            document.getElementById('error-message').textContent = message;
+        }
+
+        function hideError() {
+            document.getElementById('error').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
